@@ -216,3 +216,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- Project-specific ---
+# Raw IMU dataset: ~5.6 GB of .mat files, many over GitHub's 100 MB hard limit.
+# Download separately and place under data/raw/ (see README).
+data/raw/
+
+# macOS
+.DS_Store

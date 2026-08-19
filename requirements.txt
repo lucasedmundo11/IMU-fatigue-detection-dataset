@@ -1,0 +1,8 @@
+# Data processing layer. Modelling dependencies come later.
+numpy>=1.21
+scipy>=1.7
+pandas>=1.3
+
+# Optional: lets `export-tablefeats --out ...parquet` write parquet instead of
+# falling back to csv.
+# pyarrow>=10
