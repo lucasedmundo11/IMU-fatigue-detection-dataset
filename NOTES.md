@@ -1,6 +1,7 @@
 # 4TU running-fatigue dataset — reading notes
 
-Dataset: doi:10.4121/14307743.v1 — Marotta et al., *Sensors* 2021;21(10):3451.
+Dataset: doi:10.4121/14307743.v1 — Marotta et al., *Sensors* 2021;21(10):3451
+(full text: [PMC8156769](https://pmc.ncbi.nlm.nih.gov/articles/PMC8156769/)).
 31 `.mat` files, ~5.6 GB, all **MATLAB v7 (MATLAB 5.0)**, so `scipy.io.loadmat`
 reads everything. No `mat73` or `h5py` needed. Peak RAM ≈ 200 MB per file.
 
@@ -15,6 +16,7 @@ Data processing only. Feature extraction and modelling come later.
 | `src/mat5.py` | minimal MAT5 element reader used by `tablefeats` |
 | `src/validate.py` | checks the data against the README and against our own assumptions |
 | `src/__main__.py` | the CLI |
+| `notebooks/01_exploracao_inicial.ipynb` | first exploration — file inventory, glossary of every label/channel/column, TableFeats, one raw recording, strides |
 
 ```bash
 .venv/bin/python -m pip install -r requirements.txt
@@ -22,7 +24,16 @@ Data processing only. Feature extraction and modelling come later.
 .venv/bin/python -m src inspect            # recordings, channels, stride counts
 .venv/bin/python -m src validate --full    # README audit + subject-map re-derivation
 .venv/bin/python -m src export-tablefeats  # -> data/preprocessed/TableFeats.csv
+
+# exploration notebook (matplotlib/seaborn/ipykernel are in requirements.txt)
+.venv/bin/python -m jupyter nbconvert --to notebook --execute --inplace \
+    notebooks/01_exploracao_inicial.ipynb
 ```
+
+The notebook `os.chdir`s to the project root on its first cell, so it can be run
+from either `notebooks/` or the root. It runs end to end in about a minute and
+loads two recordings (~400 MB peak); everything else comes from the exported
+`TableFeats.csv` and the strides files.
 
 Run from the project root. Verified on the project venv — Python 3.13.11,
 numpy 2.5.2, scipy 1.18.0, pandas 3.0.5 — and on system Python 3.9 with
@@ -58,7 +69,9 @@ Verified by `python3 -m src validate` (2 known defects, 3 omissions).
    `segment.XXX.angle: angle data for a given joint (rad)`. Right-knee flexion
    peaks at 109.3 — that is degrees; as radians it would be 6262°. Segment
    `acc` (m/s², pelvis median |acc| 13.5) and `angvel` (rad/s, foot peak 17.1
-   ≈ 977 °/s) *are* as documented.
+   ≈ 977 °/s) *are* as documented. Within the `(N, 3)` angle array the
+   flexion/extension component is column **2**, not column 0 — for `RKNE` it
+   spans 0–109° while columns 0 and 1 stay inside ±14°.
 2. **"Each of the 8 subjects has 4 files" is false.** `p007` has no
    `postfatigue1200m` recording — 31 files, not 32. Its *strides* file still
    contains that run (see below), so p007 yields only 2 of the 3 classes for
@@ -100,8 +113,16 @@ cleanly. Re-derivable with `python3 -m src validate --full`.
 ## What the stride files contain
 
 `pXXX_strides.mat` holds 45 channels, each `(150 time-normalised points ×
-n_strides)`: 7 joints × {`X`, `Y`, resultant} plus 8 body segments ×
+n_strides)`: 7 joints × {`X`, `Y`, unsuffixed} plus 8 body segments ×
 {`nacc`, `jerk`, `angvel`}.
+
+The **unsuffixed joint channel is not a resultant** — it is the
+flexion/extension component in degrees. `<joint>X`, `<joint>Y` and `<joint>`
+reproduce columns 0, 1 and 2 of `joint.<J>.angle` in that order; for `p001` the
+value ranges match column by column across LANK/RKNE/RHIP/L5S1 (`rknee`
+5.2–111.3 against `RKNE` column 2 at −0.3–109.3, while `rkneeX`/`rkneeY` stay
+inside the ±14 ranges of columns 0 and 1). Shown in
+`notebooks/01_exploracao_inicial.ipynb` §2.3.
 
 They cover **all three runs concatenated chronologically**, not just the 4000 m
 run. Measured gait-cycle period from foot angular velocity is 0.68–0.77 s
@@ -156,6 +177,60 @@ Key columns: `rpe` (8–19), `sub`, `fatigue` (0/1/2 label), `speed`, `HR_norm`,
 `weight`, `height`, `experience`, then gait-event angles (`IC_*`, `MS_max_*`,
 `TO_min_*`, …) and per-segment acc/angvel moments. Values are already z-scored
 **per subject**, as the README states.
+
+### What the 165 columns mean
+
+The shipped README documents none of them. The paper does
+([PMC8156769](https://pmc.ncbi.nlm.nih.gov/articles/PMC8156769/)): *"A total of
+157 features were extracted"* — 43 biomechanical, 110 statistical, 4
+spatiotemporal. 165 columns − 8 context/label columns = 157, and grouping the
+names by the scheme below reproduces 43 / 110 / 4 **exactly** — an independent
+confirmation that `tablefeats.py` aligned names to columns correctly.
+
+| pattern | example | meaning |
+|---|---|---|
+| `<event>_<n>` | `MS_max_3` | joint angle at a gait event |
+| `Difference<n>` | `Difference2` | left–right symmetry, joint level `n` (1 ankles, 2 knees, 3 hips) |
+| `SA<side>` | `SAr` | symmetry angle |
+| `max_acc<body>`, `max_av<body>` | `max_acclti` | peak \|acc\| / \|angvel\| |
+| `<descriptor><joint>` | `stdlk` | statistic of the joint angle |
+| `<descriptor><segment>[av]` | `sdlll`, `sdlllav` | statistic of segment acc / angvel |
+| `sp_<side>`, `sl_<side>` | `sp_r` | stride time, stride length |
+
+Descriptors are `mean`, `std`/`sd`, `i` (**IQR**, per the paper), `s` skewness,
+`k` kurtosis. Events are `IC`, `MS`, `TO`, `MSW`, `ESW`.
+
+The `1…6` index is the one thing the paper leaves open — it only says *"six
+joint angles (left and right ankle, left and right knee, left and right hip)"*.
+It is **1 LANK, 2 RANK, 3 LKNE, 4 RKNE, 5 LHIP, 6 RHIP**, i.e. the same
+`la ra lk rk lh rh` order the statistical block uses. Two independent supports:
+the event set per index matches the biomechanics (ankles get IC/MS/TO, knees add
+MSW/ESW, hips take MSW instead of MS), and each event feature correlates most
+with its own joint's descriptors (`MS_max_3`↔`lk` 0.92, `IC_5`↔`lh` 0.88,
+`IC_6`↔`rh` 0.92, `TO_min_1`↔`la` 0.90). For indices 1–2 at IC and MS the argmax
+drifts to the knee — ankle and knee angles are coupled there — so the ankle
+assignment rests on toe-off, the event set, and elimination. Full check in
+`notebooks/01_exploracao_inicial.ipynb` §2.4–2.5.
+
+`max_avh` is almost certainly a typo for `max_avlh`: it is the only `max_av*`
+column without a side letter, and `max_avrh` exists.
+
+### It is more separable than it should be
+
+Verified in `notebooks/01_exploracao_inicial.ipynb`. Spearman ρ against
+`fatigue`: `HR_norm` 0.94, `sla` 0.89, `sdlll` 0.88, and 20+ features above 0.75
+— the class distributions are nearly disjoint for `none` vs the rest, and the
+direction holds in all 8 subjects.
+
+That is the per-subject z-scoring talking. It is fitted over all three
+conditions of a subject, so under leave-one-subject-out the normalisation
+statistics have already seen the test data — transductive, the same caveat as
+the windowed baseline below. A LOSO number on `TableFeats` measures per-wearer
+calibration, not generalisation to an uncalibrated new wearer. Any baseline
+built on it should be reported both ways.
+
+`HR_norm` is the only column with missing values: 1296 rows, all of `sub` 1
+(= `p001`), which has no heart-rate trace at all.
 
 ## Baseline result (superseded — code removed)
 
