@@ -169,9 +169,17 @@ A MATLAB `table`, i.e. an MCOS classdef object, which scipy returns as an opaque
 stub. The payload lives in `__function_workspace__`, a raw MAT5 element stream;
 `src/mat5.py` walks it directly.
 
-**12,513 rows × 169 columns.** 165 are numeric doubles; 4 are categorical char
-arrays (`footstrike`, `dir`, `gender`, `d_l`) and are *not* recovered — they are
+**12,513 rows × 169 columns.** 165 are numeric doubles; 4 are categorical
+(`footstrike`, `dir`, `gender`, `d_l`) and are *not* recovered — they are
 skipped when aligning names to columns.
+
+That is the file's limitation, not the decoder's: a 12,513-row categorical needs
+at least 12,513 contiguous bytes, and the blob holds no array of that length
+that is not `float64`, nor any char/integer element above 10 kB in its 19.4 MB.
+Nothing is lost for modelling — the paper's 157 features are all numeric and all
+recovered; the four are context. `dir` (CW/CCW) is recoverable from the
+recording filenames; `footstrike`, `gender` and `d_l` are not. Checked in
+`notebooks/01_exploracao_inicial.ipynb` §2.4.
 
 Key columns: `rpe` (8–19), `sub`, `fatigue` (0/1/2 label), `speed`, `HR_norm`,
 `weight`, `height`, `experience`, then gait-event angles (`IC_*`, `MS_max_*`,
