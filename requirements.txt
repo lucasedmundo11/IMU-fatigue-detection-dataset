@@ -12,3 +12,6 @@ nbconvert>=7   # only to re-execute a notebook headlessly (see NOTES.md)
 # Optional: lets `export-tablefeats --out ...parquet` write parquet instead of
 # falling back to csv.
 # pyarrow>=10
+
+# Decision-tree notebook (notebooks/02_arvores_de_decisao.ipynb).
+scikit-learn>=1.3
