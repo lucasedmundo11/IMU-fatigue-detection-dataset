@@ -224,3 +224,6 @@ data/raw/
 
 # macOS
 .DS_Store
+
+# Trained models (notebooks/03)
+data/models/

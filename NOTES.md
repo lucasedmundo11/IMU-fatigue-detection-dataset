@@ -18,6 +18,7 @@ Data processing only. Feature extraction and modelling come later.
 | `src/__main__.py` | the CLI |
 | `notebooks/01_exploracao_inicial.ipynb` | first exploration — file inventory, glossary of every label/channel/column, TableFeats, one raw recording, strides |
 | `notebooks/02_arvores_de_decisao.ipynb` | decision trees on `TableFeats` — Gini by hand, depth/pruning, nested leave-one-subject-out, comparison with random forest (needs `scikit-learn`) |
+| `notebooks/03_processo_classificacao.ipynb` | end-to-end classification process: audit, subject-wise nested validation, 7 algorithms compared, error analysis, saved model in `data/models/` |
 
 ```bash
 .venv/bin/python -m pip install -r requirements.txt
